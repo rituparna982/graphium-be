@@ -163,23 +163,16 @@ io.on('connection', (socket) => {
   });
 });
 
-// ─── Security Middleware ──────────────────────────────────────────────────────
+// ─── Global Middleware ────────────────────────────────────────────────────────
+app.use(cors({
+  origin: true, // DEV/PROD: Reflect requester's origin to support credentials
+  credentials: true,
+}));
+app.options('*', cors()); // Handle preflight for all routes
+
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
-}));
-
-// PRODUCTION-READY: Reflective origin or specific domain to support credentials
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow all for now if FRONTEND_URL is *, or reflect the origin
-    if (!origin || FRONTEND_URL === "*" || [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'].includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
 }));
 
 app.use(express.json({ limit: '10mb' }));
