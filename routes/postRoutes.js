@@ -3,6 +3,7 @@ const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const User = require('../models/User');
 const History = require('../models/History');
+const Notification = require('../models/Notification');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 
@@ -267,6 +268,17 @@ router.post('/:id/like', authMiddleware, async (req, res, next) => {
       post.likedBy.push(userId);
       post.likes += 1;
       await logHistory(userId, 'post_liked', 'post', `Liked post: ${post._id}`, {}, post._id, 'Post');
+
+      // Create notification for post author
+      if (post.author.toString() !== userId.toString()) {
+        await Notification.create({
+          recipient: post.author,
+          sender: userId,
+          type: 'like',
+          post: post._id,
+          content: 'liked your post'
+        });
+      }
     } else {
       post.likedBy.splice(index, 1);
       post.likes -= 1;

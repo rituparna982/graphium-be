@@ -25,6 +25,7 @@ const conferenceRoutes = require('./routes/conferenceRoutes');
 const historyRoutes = require('./routes/historyRoutes'); // NEW: History routes
 const flutterCollabRoutes = require('./routes/flutterCollabRoutes'); // NEW: Flutter routes
 const reviewRoutes = require('./routes/reviewRoutes'); // NEW: Review routes
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -213,6 +214,7 @@ app.use('/api/conference-papers', conferenceRoutes);
 app.use('/api/history', historyRoutes); // NEW: History routes
 app.use('/api/flutter', flutterCollabRoutes); // NEW: Flutter routes
 app.use('/api/reviews', reviewRoutes); // NEW: Review routes
+app.use('/api/notifications', notificationRoutes);
 
 // ─── ADMIN: Verify User ───────────────────────────────────────────────────────
 // In dev mode, let's just make an easy endpoint to verify any user
