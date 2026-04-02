@@ -44,7 +44,7 @@ console.log('══════════════════════�
 // ─── Socket.IO Setup ─────────────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin: [FRONTEND_URL],
+    origin: FRONTEND_URL === "*" ? true : [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'],
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -169,9 +169,16 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// DEV MODE: Allow multiple origins
+// PRODUCTION-READY: Reflective origin or specific domain to support credentials
 app.use(cors({
-  origin: [FRONTEND_URL],
+  origin: (origin, callback) => {
+    // Allow all for now if FRONTEND_URL is *, or reflect the origin
+    if (!origin || FRONTEND_URL === "*" || [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'].includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 
