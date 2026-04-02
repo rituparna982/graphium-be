@@ -99,12 +99,12 @@ router.get('/user/:userId', async (req, res, next) => {
  */
 router.post('/', authMiddleware, async (req, res, next) => {
   try {
-    const { content, category, target, attachment, tags, paper, dataset, event, article } = req.body;
+    const { content, category, target, attachment, tags, paper, dataset, event, article, photos } = req.body;
 
-    console.log('[POSTS] Creating post:', { userId: req.user._id, category: category || 'general', contentLength: content?.length });
+    console.log('[POSTS] Creating post:', { userId: req.user._id, category: category || 'general', hasPhotos: photos?.length > 0 });
 
-    if (!content || !content.trim()) {
-      return res.status(400).json({ error: 'Post content is required.' });
+    if ((!content || !content.trim()) && (!photos || photos.length === 0)) {
+      return res.status(400).json({ error: 'Post content or photos are required.' });
     }
 
     const actionMap = {
@@ -121,12 +121,13 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     const postData = {
       author: req.user._id,
-      content,
+      content: content || '',
       category: postCategory,
       action: actionMap[postCategory] || 'shared an update',
       target: target || '',
       attachment,
       tags: tags || [],
+      photos: photos || [],
     };
 
     // Attach category-specific fields

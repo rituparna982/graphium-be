@@ -7,6 +7,7 @@ const profileSchema = new mongoose.Schema({
   title: { type: String, default: 'Researcher' },
   institution: { type: String, default: 'Quantum Institute' },
   about: String,
+  collaboratorCount: { type: Number, default: 0 },
   stats: {
     hIndex: { type: Number, default: 0 },
     citations: { type: Number, default: 0 },
