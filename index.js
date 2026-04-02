@@ -168,7 +168,6 @@ app.use(cors({
   origin: true, // DEV/PROD: Reflect requester's origin to support credentials
   credentials: true,
 }));
-app.options('*', cors()); // Handle preflight for all routes
 
 app.use(helmet({
   contentSecurityPolicy: false,
