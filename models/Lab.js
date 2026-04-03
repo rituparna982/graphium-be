@@ -13,18 +13,6 @@ const labSchema = new mongoose.Schema({
     content: String,
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdAt: { type: Date, default: Date.now }
-  }],
-  posts: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Post'
-  }],
-  files: [{
-    name: String,
-    url: String,
-    type: String,
-    size: Number,
-    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    createdAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
 

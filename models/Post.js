@@ -2,8 +2,7 @@ const mongoose = require('mongoose');
 
 const postSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  content: { type: String, required: function() { return !this.photos?.length; } },
-  photos: [{ type: String }],
+  content: { type: String, required: true },
   
   // Post type determines the form fields and display
   category: { 
@@ -11,6 +10,7 @@ const postSchema = new mongoose.Schema({
     enum: ['general', 'paper', 'dataset', 'question', 'milestone', 'event', 'article'],
     default: 'general'
   },
+  imageUrl: { type: String, default: '' },
 
   // Dynamic action text shown under author name
   action: { type: String, default: 'shared an update' },
@@ -69,9 +69,6 @@ const postSchema = new mongoose.Schema({
     subtitle: String,
     url: String
   },
-  
-  // AI-generated summary
-  aiSummary: { type: String, default: null },
 
   // Generic attachment (backward compatible)
   attachment: {

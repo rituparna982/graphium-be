@@ -47,12 +47,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     await logHistory(req.user._id, 'collab_requested', `Sent collaboration request`, { recipientId, topic }, collab._id);
 
-    // Update collaborator counts for both users
-    const Profile = require('../models/Profile');
-    await Profile.findOneAndUpdate({ userId: req.user._id }, { $inc: { collaboratorCount: 1 } });
-    await Profile.findOneAndUpdate({ userId: recipientId }, { $inc: { collaboratorCount: 1 } });
-
-    console.log('[COLLAB] Request created and counts updated:', collab._id);
+    console.log('[COLLAB] Request created and auto-accepted:', collab._id);
     res.status(201).json(collab);
   } catch (err) {
     console.error('[COLLAB] POST / error:', err);
@@ -89,11 +84,6 @@ router.delete('/:id', authMiddleware, async (req, res, next) => {
     if (!collab) return res.status(404).json({ error: 'Not found.' });
     
     // DEV MODE: Skip ownership check
-    // Update collaborator counts for both users
-    const Profile = require('../models/Profile');
-    await Profile.findOneAndUpdate({ userId: collab.requester }, { $inc: { collaboratorCount: -1 } });
-    await Profile.findOneAndUpdate({ userId: collab.recipient }, { $inc: { collaboratorCount: -1 } });
-
     await collab.deleteOne();
     await logHistory(req.user._id, 'collab_removed', 'Removed collaboration', {}, collab._id);
 

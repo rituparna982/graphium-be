@@ -134,56 +134,9 @@ router.delete('/:id', authMiddleware, async (req, res, next) => {
     await logHistory(req.user._id, 'lab_deleted', 'lab', `Deleted lab: ${lab.name}`, {}, lab._id);
 
     res.json({ message: 'Lab deleted.' });
-  } catch (err) { next(err); }
-});
-
-// POST /api/labs/:id/lab-posts — post content in classroom-style stream
-router.post('/:id/lab-posts', authMiddleware, async (req, res, next) => {
-  try {
-    const lab = await Lab.findById(req.params.id);
-    if (!lab) return res.status(404).json({ error: 'Lab not found.' });
-    
-    const { title, content } = req.body;
-    const Post = require('../models/Post');
-    
-    // Create a new post specifically for the lab
-    const post = await Post.create({
-      title,
-      content,
-      author: req.user._id,
-      category: 'research',
-      tags: ['lab_hosted', lab.name]
-    });
-    
-    lab.posts.push(post._id);
-    await lab.save();
-    
-    res.status(201).json(post);
-  } catch (err) { next(err); }
-});
-
-// POST /api/labs/:id/files — Share files in lab
-router.post('/:id/files', authMiddleware, async (req, res, next) => {
-  try {
-    const lab = await Lab.findById(req.params.id);
-    if (!lab) return res.status(404).json({ error: 'Lab not found.' });
-    
-    const { name, url, type, size } = req.body;
-    if (!name || !url) return res.status(400).json({ error: 'Name and URL required.' });
-    
-    const newFile = {
-      name,
-      url,
-      type: type || 'application/octet-stream',
-      size: size || 0,
-      uploadedBy: req.user._id
-    };
-    
-    lab.files.push(newFile);
-    await lab.save();
-    
-    res.status(201).json(newFile);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

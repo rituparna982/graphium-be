@@ -11,7 +11,6 @@ require('dotenv').config();
 const connectDB = require('./config/db');
 const errorMiddleware = require('./middleware/errorMiddleware');
 const Message = require('./models/Message');
-const { authMiddleware } = require('./middleware/authMiddleware');
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
@@ -25,8 +24,7 @@ const collaborationRoutes = require('./routes/collaborationRoutes');
 const conferenceRoutes = require('./routes/conferenceRoutes');
 const historyRoutes = require('./routes/historyRoutes'); // NEW: History routes
 const flutterCollabRoutes = require('./routes/flutterCollabRoutes'); // NEW: Flutter routes
-const reviewRoutes = require('./routes/reviewRoutes'); // NEW: Review routes
-const notificationRoutes = require('./routes/notificationRoutes');
+const uploadRoutes = require('./routes/uploadRoutes'); // NEW: Image upload routes
 
 const app = express();
 const server = http.createServer(app);
@@ -85,8 +83,8 @@ io.on('connection', (socket) => {
   // Handle sending a message
   socket.on('send_message', async (data) => {
     try {
-      const { receiverId, content, image } = data;
-      if (!receiverId || (!content?.trim() && !image)) return;
+      const { receiverId, content, messageType, imageUrl } = data;
+      if (!receiverId || (!content?.trim() && !imageUrl)) return;
 
       const conversationId = Message.getConversationId(userId, receiverId);
 
@@ -95,7 +93,8 @@ io.on('connection', (socket) => {
         sender: userId,
         receiver: receiverId,
         content: content?.trim() || '',
-        image: image || null
+        messageType: messageType || 'text',
+        imageUrl: imageUrl || '',
       });
 
       await message.save();
@@ -106,7 +105,8 @@ io.on('connection', (socket) => {
         sender: userId,
         receiver: receiverId,
         content: message.content,
-        image: message.image,
+        messageType: message.messageType,
+        imageUrl: message.imageUrl,
         createdAt: message.createdAt,
         read: false,
       };
@@ -168,20 +168,29 @@ io.on('connection', (socket) => {
   });
 });
 
-// ─── Global Middleware ────────────────────────────────────────────────────────
-app.use(cors({
-  origin: true, // DEV/PROD: Reflect requester's origin to support credentials
-  credentials: true,
-}));
-
+// ─── Security Middleware ──────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
 }));
 
+// PRODUCTION-READY: Reflective origin or specific domain to support credentials
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow all for now if FRONTEND_URL is *, or reflect the origin
+    if (!origin || FRONTEND_URL === "*" || [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'].includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // DEV MODE: Relaxed rate limiting
 const authLimiter = rateLimit({
@@ -214,21 +223,7 @@ app.use('/api/collaborations', collaborationRoutes);
 app.use('/api/conference-papers', conferenceRoutes);
 app.use('/api/history', historyRoutes); // NEW: History routes
 app.use('/api/flutter', flutterCollabRoutes); // NEW: Flutter routes
-app.use('/api/reviews', reviewRoutes); // NEW: Review routes
-app.use('/api/notifications', notificationRoutes);
-
-// ─── ADMIN: Verify User ───────────────────────────────────────────────────────
-// In dev mode, let's just make an easy endpoint to verify any user
-const User = require('./models/User');
-app.put('/api/users/:id/verify', authMiddleware, async (req, res, next) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ error: 'User not found.' });
-    user.isVerified = !user.isVerified;
-    await user.save();
-    res.json({ message: 'User verification status updated.', isVerified: user.isVerified });
-  } catch (err) { next(err); }
-});
+app.use('/api/upload', uploadRoutes); // NEW: Upload routes
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -241,6 +236,6 @@ app.use(errorMiddleware);
 // Use server.listen instead of app.listen so Socket.IO works
 server.listen(PORT, () => {
   console.log(`🚀 Backend running on port ${PORT}`);
-  console.log(`📡 Graphium Web expected at: ${FRONTEND_URL}`);
+  console.log(`📡 Frontend expected at: ${FRONTEND_URL}`);
   console.log(`🔧 Dev mode: All auth bypassed, all permissions granted\n`);
 });
