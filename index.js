@@ -174,18 +174,29 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// PRODUCTION-READY: Reflective origin or specific domain to support credentials
-app.use(cors({
+const allowedOrigins = [
+  FRONTEND_URL, 
+  'https://graphium.space', 
+  'http://localhost:5173', 
+  'http://localhost:3000'
+].filter(o => o && o !== "*");
+
+const corsOptions = {
   origin: (origin, callback) => {
-    // Allow all for now if FRONTEND_URL is *, or reflect the origin
-    if (!origin || FRONTEND_URL === "*" || [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'].includes(origin)) {
+    // Allow if no origin (like mobile apps/postman) OR if FRONTEND_URL is *
+    if (!origin || FRONTEND_URL === "*" || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`[CORS] Blocked request from: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-}));
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle preflight for all routes
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));

@@ -401,7 +401,7 @@ router.post('/:id/save', authMiddleware, async (req, res, next) => {
  * @desc    Engage in a research conversation with the AI assistant.
  * @access  Private
  */
-const { chatWithAi } = require('../services/aiService');
+const { chatWithAi, summarizePDF } = require('../services/aiService');
 router.post('/ai-chat', authMiddleware, async (req, res, next) => {
   try {
     const { message } = req.body;
@@ -413,6 +413,22 @@ router.post('/ai-chat', authMiddleware, async (req, res, next) => {
     res.json({ response: aiResponse });
   } catch (err) {
     console.error('[AI CHAT] Route error:', err);
+    next(err);
+  }
+});
+
+router.post('/summarize-pdf', authMiddleware, async (req, res, next) => {
+  try {
+    const { pdfData } = req.body;
+    if (!pdfData) {
+      return res.status(400).json({ error: 'PDF data is required.' });
+    }
+    // Note: aiService.summarizePDF usually expects the base64 or a path.
+    // In our case it handles base64 text extraction or similar.
+    const summary = await summarizePDF(pdfData);
+    res.json({ summary });
+  } catch (err) {
+    console.error('[SUMMARIZE PDF] Route error:', err);
     next(err);
   }
 });
