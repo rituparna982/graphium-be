@@ -107,7 +107,12 @@ router.post('/:id/announce', authMiddleware, async (req, res, next) => {
     const lab = await Lab.findById(req.params.id);
     if (!lab) return res.status(404).json({ error: 'Lab not found.' });
     
-    // DEV MODE: Skip host-only check
+    // Host-only check
+    if (lab.host.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      console.error(`[SECURITY] Unauthorized announcement attempt: User ${req.user._id} on Lab ${lab._id}`);
+      return res.status(403).json({ error: 'Only the lab host can post announcements.' });
+    }
+
     const { content } = req.body;
     if (!content) return res.status(400).json({ error: 'Content required.' });
     lab.announcements.push({ content, author: req.user._id });
@@ -122,13 +127,18 @@ router.post('/:id/announce', authMiddleware, async (req, res, next) => {
   }
 });
 
-// DELETE /api/labs/:id — any user can delete (DEV MODE)
+// DELETE /api/labs/:id — only host can delete
 router.delete('/:id', authMiddleware, async (req, res, next) => {
   try {
     const lab = await Lab.findById(req.params.id);
     if (!lab) return res.status(404).json({ error: 'Lab not found.' });
     
-    // DEV MODE: Skip host check
+    // Host check
+    if (lab.host.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      console.error(`[SECURITY] Unauthorized delete attempt: User ${req.user._id} on Lab ${lab._id}`);
+      return res.status(403).json({ error: 'Only the lab host can delete this lab.' });
+    }
+
     await lab.deleteOne();
 
     await logHistory(req.user._id, 'lab_deleted', 'lab', `Deleted lab: ${lab.name}`, {}, lab._id);

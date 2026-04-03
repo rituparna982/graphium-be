@@ -9,7 +9,7 @@ const JWT_SECRET = () => process.env.JWT_SECRET;
 // - If no token / invalid token, a default dev user is auto-created & attached.
 // ──────────────────────────────────────────────────────────────────────────────
 
-const DEV_MODE = true; // TEMPORARY — set to false before production
+const DEV_MODE = process.env.NODE_ENV === 'development';
 
 /**
  * Authentication middleware (DEV MODE).

@@ -122,7 +122,7 @@ userSchema.set('toObject', { virtuals: true });
 /**
  * Find user by email using HMAC hash lookup.
  */
-userSchema.statics.findByEmail = async function (email) {
+userSchema.statics.findByEmail = function (email) {
   const hash = hmacHash(email);
   return this.findOne({ emailHash: hash });
 };

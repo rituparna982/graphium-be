@@ -70,7 +70,12 @@ router.patch('/:id', authMiddleware, async (req, res, next) => {
     const collab = await Collaboration.findById(req.params.id);
     if (!collab) return res.status(404).json({ error: 'Collaboration not found.' });
     
-    // DEV MODE: Skip recipient check — anyone can accept/decline
+    // Recipient check
+    if (collab.recipient.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      console.error(`[SECURITY] Unauthorized collab status update attempt: User ${req.user._id} on Collab ${collab._id}`);
+      return res.status(403).json({ error: 'Only the recipient can accept or decline this request.' });
+    }
+
     collab.status = status;
     await collab.save();
     await collab.populate('requester', 'nameEncrypted avatar');
@@ -82,13 +87,20 @@ router.patch('/:id', authMiddleware, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/collaborations/:id — anyone can delete (DEV MODE)
+// DELETE /api/collaborations/:id — requester or recipient only
 router.delete('/:id', authMiddleware, async (req, res, next) => {
   try {
     const collab = await Collaboration.findById(req.params.id);
     if (!collab) return res.status(404).json({ error: 'Not found.' });
     
-    // DEV MODE: Skip ownership check
+    // Ownership check (Requester or Recipient)
+    if (collab.requester.toString() !== req.user._id.toString() && 
+        collab.recipient.toString() !== req.user._id.toString() && 
+        req.user.role !== 'admin') {
+      console.error(`[SECURITY] Unauthorized collab delete attempt: User ${req.user._id} on Collab ${collab._id}`);
+      return res.status(403).json({ error: 'You are not authorized to remove this collaboration.' });
+    }
+
     // Update collaborator counts for both users
     const Profile = require('../models/Profile');
     await Profile.findOneAndUpdate({ userId: collab.requester }, { $inc: { collaboratorCount: -1 } });

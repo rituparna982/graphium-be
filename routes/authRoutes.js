@@ -54,29 +54,11 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email format.' });
     }
 
-    // DEV: Check if user exists, if so just log them in
+    // Check if user already exists
     let user = await User.findByEmail(email);
     if (user) {
-      console.log('[AUTH][DEV] User already exists, logging in instead of failing');
-      const accessToken = generateAccessToken(user._id);
-      const refreshToken = generateRefreshToken(user._id);
-      await user.addRefreshToken(refreshToken, req.headers['user-agent']);
-
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: false, // DEV: not secure
-        sameSite: 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        path: '/api/auth',
-      });
-
-      await logHistory(user._id, 'register_existing', 'auth', `Existing user re-registered: ${email}`);
-
-      return res.status(200).json({
-        message: 'Account already exists. Logged in.',
-        accessToken,
-        user: user.toJSON(),
-      });
+      console.error('[AUTH] Registration failed: Email already in use:', email);
+      return res.status(409).json({ error: 'An account with this email already exists.' });
     }
 
     user = await User.createUser({ email, name, password });
@@ -125,26 +107,22 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
-
-    let user = await User.findByEmail(email);
+    // Explicitly select password for comparison
+    let user = await User.findByEmail(email).select('+password');
     
     // DEV MODE: Auto-create user if not found
     if (!user) {
-      console.log('[AUTH][DEV] User not found, auto-creating:', email);
-      const name = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      user = await User.createUser({ email, name, password });
-      
-      // Create default profile
-      await Profile.create({
-        userId: user._id,
-        name: name,
-        title: 'Researcher',
-      });
-
-      console.log('[AUTH][DEV] Auto-created user:', user._id);
+      console.error('[AUTH] Login failed: User not found for email:', email);
+      return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    // DEV MODE: Skip password verification
+    // Verify password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      console.error('[AUTH] Login failed: Incorrect password for email:', email);
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
     user.lastLogin = new Date();
     await user.save();
 

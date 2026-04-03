@@ -199,7 +199,12 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    // DEV MODE: Skip ownership check
+    // Ownership check
+    if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      console.error(`[SECURITY] Unauthorized edit attempt: User ${req.user._id} on Post ${post._id}`);
+      return res.status(403).json({ error: 'You are not authorized to edit this post' });
+    }
+
     const { content, attachment } = req.body;
     if (content) post.content = content;
     if (attachment) post.attachment = attachment;
@@ -217,7 +222,7 @@ router.put('/:id', authMiddleware, async (req, res, next) => {
 
 /**
  * @route   DELETE /api/posts/:id
- * @desc    Delete a post — DEV MODE: any logged-in user can delete
+ * @desc    Delete a post
  * @access  Private
  */
 router.delete('/:id', authMiddleware, async (req, res, next) => {
@@ -227,7 +232,12 @@ router.delete('/:id', authMiddleware, async (req, res, next) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    // DEV MODE: Skip ownership check
+    // Ownership check
+    if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      console.error(`[SECURITY] Unauthorized delete attempt: User ${req.user._id} on Post ${post._id}`);
+      return res.status(403).json({ error: 'You are not authorized to delete this post' });
+    }
+
     await post.deleteOne();
     await logHistory(req.user._id, 'post_deleted', 'post', `Deleted post: ${req.params.id}`, {}, post._id, 'Post');
 
