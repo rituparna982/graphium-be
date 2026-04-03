@@ -24,6 +24,9 @@ const collaborationRoutes = require('./routes/collaborationRoutes');
 const conferenceRoutes = require('./routes/conferenceRoutes');
 const historyRoutes = require('./routes/historyRoutes'); // NEW: History routes
 const flutterCollabRoutes = require('./routes/flutterCollabRoutes'); // NEW: Flutter routes
+const reviewRoutes = require('./routes/reviewRoutes'); // NEW: Review routes
+const notificationRoutes = require('./routes/notificationRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
 const uploadRoutes = require('./routes/uploadRoutes'); // NEW: Image upload routes
 
 const app = express();
@@ -223,6 +226,22 @@ app.use('/api/collaborations', collaborationRoutes);
 app.use('/api/conference-papers', conferenceRoutes);
 app.use('/api/history', historyRoutes); // NEW: History routes
 app.use('/api/flutter', flutterCollabRoutes); // NEW: Flutter routes
+app.use('/api/reviews', reviewRoutes); // NEW: Review routes
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/settings', settingsRoutes);
+
+// ─── ADMIN: Verify User ───────────────────────────────────────────────────────
+// In dev mode, let's just make an easy endpoint to verify any user
+const User = require('./models/User');
+app.put('/api/users/:id/verify', authMiddleware, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    user.isVerified = !user.isVerified;
+    await user.save();
+    res.json({ message: 'User verification status updated.', isVerified: user.isVerified });
+  } catch (err) { next(err); }
+});
 app.use('/api/upload', uploadRoutes); // NEW: Upload routes
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
