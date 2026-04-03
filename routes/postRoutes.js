@@ -396,4 +396,25 @@ router.post('/:id/save', authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @route   POST /api/posts/ai-chat
+ * @desc    Engage in a research conversation with the AI assistant.
+ * @access  Private
+ */
+const { chatWithAi } = require('../services/aiService');
+router.post('/ai-chat', authMiddleware, async (req, res, next) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message content is required.' });
+    }
+
+    const aiResponse = await chatWithAi(message);
+    res.json({ response: aiResponse });
+  } catch (err) {
+    console.error('[AI CHAT] Route error:', err);
+    next(err);
+  }
+});
+
 module.exports = router;
