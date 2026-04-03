@@ -9,15 +9,14 @@ const auth = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'No token provided' });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretjwtkeyforgraphium');
+    if (!process.env.JWT_SECRET) {
+      console.error('[SECURITY] Missing JWT_SECRET env var');
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = { id: decoded.userId || decoded.id };
     next();
   } catch (error) {
-    // DEV BYPASS: if token is invalid but we are in dev, check for x-user-id header
-    if (req.headers['x-user-id']) {
-       req.user = { id: req.headers['x-user-id'] };
-       return next();
-    }
     return res.status(401).json({ error: 'Invalid token' });
   }
 };

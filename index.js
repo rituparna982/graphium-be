@@ -57,22 +57,26 @@ const io = new Server(server, {
 // Track online users: userId -> socketId
 const onlineUsers = new Map();
 
-// DEV MODE: Relaxed socket authentication
+// Secure Socket Authentication
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.userId = decoded.userId;
-    } catch (err) {
-      console.log('[SOCKET] Token verification failed, using socket id as userId');
-      socket.userId = socket.id;
-    }
-  } else {
-    console.log('[SOCKET] No token provided, using socket id as userId');
-    socket.userId = socket.id;
+  if (!token) {
+    console.error('[SOCKET] Connection rejected: No token provided');
+    return next(new Error('Authentication error: Token required'));
   }
-  next(); // DEV MODE: Always allow connection
+
+  try {
+    if (!process.env.JWT_SECRET) {
+      console.error('[SOCKET] Server Error: Missing JWT_SECRET');
+      return next(new Error('Internal server error'));
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.userId;
+    next();
+  } catch (err) {
+    console.error('[SOCKET] Connection rejected: Invalid token', err.message);
+    next(new Error('Authentication error: Invalid token'));
+  }
 });
 
 io.on('connection', (socket) => {
@@ -170,6 +174,27 @@ io.on('connection', (socket) => {
     console.log(`[SOCKET] User disconnected: ${userId}`);
   });
 });
+
+// ─── Global Middleware ────────────────────────────────────────────────────────
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:19000',
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      console.error(`[CORS] Blocked request from unauthorized origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 
 // ─── Security Middleware ──────────────────────────────────────────────────────
 app.use(helmet({

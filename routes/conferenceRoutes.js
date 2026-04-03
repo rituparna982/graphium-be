@@ -54,13 +54,18 @@ router.post('/', authMiddleware, async (req, res, next) => {
   }
 });
 
-// PATCH /api/conference-papers/:id/revise — submit a revision (DEV: any user)
+// PATCH /api/conference-papers/:id/revise — submit a revision (author only)
 router.patch('/:id/revise', authMiddleware, async (req, res, next) => {
   try {
     const paper = await ConferencePaper.findById(req.params.id);
     if (!paper) return res.status(404).json({ error: 'Paper not found.' });
     
-    // DEV MODE: Skip author check
+    // Author check
+    if (paper.author.toString() !== req.user._id.toString()) {
+      console.error(`[SECURITY] Unauthorized revision attempt: User ${req.user._id} on Paper ${paper._id}`);
+      return res.status(403).json({ error: 'Only the author can submit revisions.' });
+    }
+
     const { note } = req.body;
     paper.revisionHistory.push({ note: note || '', submittedAt: new Date() });
     paper.status = 'resubmitted';
@@ -72,11 +77,18 @@ router.patch('/:id/revise', authMiddleware, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PATCH /api/conference-papers/:id/status — update status (DEV: any user can)
+// PATCH /api/conference-papers/:id/status — update status (Admin only)
 router.patch('/:id/status', authMiddleware, async (req, res, next) => {
   try {
     const paper = await ConferencePaper.findById(req.params.id);
     if (!paper) return res.status(404).json({ error: 'Paper not found.' });
+    
+    // Admin check
+    if (req.user.role !== 'admin') {
+      console.error(`[SECURITY] Unauthorized status update attempt: User ${req.user._id} on Paper ${paper._id}`);
+      return res.status(403).json({ error: 'Only administrators can update paper status.' });
+    }
+
     const { status, reviewerNotes } = req.body;
     if (status) paper.status = status;
     if (reviewerNotes) paper.reviewerNotes = reviewerNotes;
@@ -88,15 +100,19 @@ router.patch('/:id/status', authMiddleware, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/conference-papers/:id (DEV: any user can delete)
+// DELETE /api/conference-papers/:id (Author or Admin)
 router.delete('/:id', authMiddleware, async (req, res, next) => {
   try {
     const paper = await ConferencePaper.findById(req.params.id);
     if (!paper) return res.status(404).json({ error: 'Not found.' });
     
-    // DEV MODE: Skip author check
-    await paper.deleteOne();
+    // Author or Admin check
+    if (paper.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      console.error(`[SECURITY] Unauthorized delete attempt: User ${req.user._id} on Paper ${paper._id}`);
+      return res.status(403).json({ error: 'Not authorized to delete this paper.' });
+    }
 
+    await paper.deleteOne();
     await logHistory(req.user._id, 'paper_deleted', `Deleted paper: ${paper.title}`, {}, paper._id);
 
     res.json({ message: 'Deleted.' });
