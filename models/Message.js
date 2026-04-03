@@ -5,8 +5,13 @@ const messageSchema = new mongoose.Schema({
   conversationId: { type: String, required: true, index: true },
   sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  content: { type: String, required: function() { return !this.image; } },
-  image: { type: String, default: null },
+  content: { type: String, default: '' },
+  messageType: { 
+    type: String, 
+    enum: ['text', 'image', 'system'], 
+    default: 'text' 
+  },
+  imageUrl: { type: String, default: '' },
   read: { type: Boolean, default: false },
 }, { timestamps: true });
 
