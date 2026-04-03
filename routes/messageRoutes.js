@@ -22,6 +22,7 @@ router.get('/conversations', authMiddleware, async (req, res, next) => {
         $group: {
           _id: '$conversationId',
           lastMessage: { $first: '$content' },
+          lastImage: { $first: '$image' },
           lastMessageAt: { $first: '$createdAt' },
           sender: { $first: '$sender' },
           receiver: { $first: '$receiver' },
@@ -50,7 +51,7 @@ router.get('/conversations', authMiddleware, async (req, res, next) => {
           otherUserName: profile?.name || 'User',
           otherUserTitle: profile?.title || 'Researcher',
           otherUserAvatar: profile?.avatar || '',
-          lastMessage: msg.lastMessage,
+          lastMessage: msg.lastMessage || (msg.lastImage ? 'Sent an image' : ''),
           lastMessageAt: msg.lastMessageAt,
           unreadCount: msg.unreadCount,
         };
@@ -95,9 +96,9 @@ router.get('/:userId', authMiddleware, async (req, res, next) => {
  */
 router.post('/:userId', authMiddleware, async (req, res, next) => {
   try {
-    const { content } = req.body;
-    if (!content || !content.trim()) {
-      return res.status(400).json({ error: 'Message content is required.' });
+    const { content, image } = req.body;
+    if ((!content || !content.trim()) && !image) {
+      return res.status(400).json({ error: 'Message content or image is required.' });
     }
 
     const conversationId = Message.getConversationId(req.user._id, req.params.userId);
@@ -106,7 +107,8 @@ router.post('/:userId', authMiddleware, async (req, res, next) => {
       conversationId,
       sender: req.user._id,
       receiver: req.params.userId,
-      content: content.trim(),
+      content: content?.trim() || null,
+      image: image || null,
     });
 
     await message.save();
