@@ -69,6 +69,9 @@ const postSchema = new mongoose.Schema({
     subtitle: String,
     url: String
   },
+  
+  // AI-generated summary
+  aiSummary: { type: String, default: null },
 
   // Generic attachment (backward compatible)
   attachment: {

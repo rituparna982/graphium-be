@@ -11,6 +11,7 @@ require('dotenv').config();
 const connectDB = require('./config/db');
 const errorMiddleware = require('./middleware/errorMiddleware');
 const Message = require('./models/Message');
+const { authMiddleware } = require('./middleware/authMiddleware');
 
 // Routes
 const authRoutes = require('./routes/authRoutes');

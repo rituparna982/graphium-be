@@ -4,7 +4,9 @@ const Comment = require('../models/Comment');
 const User = require('../models/User');
 const History = require('../models/History');
 const Notification = require('../models/Notification');
+const Collaboration = require('../models/Collaboration');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { summarizePost, summarizePDF, chatWithAi } = require('../services/aiService');
 const validate = require('../middleware/validate');
 
 const router = express.Router();
@@ -150,6 +152,34 @@ router.post('/', authMiddleware, async (req, res, next) => {
     );
 
     console.log('[POSTS] Post created successfully:', savedPost._id);
+
+    // Notify all accepted collaborators
+    try {
+      const network = await Collaboration.find({
+        $or: [
+          { requester: req.user._id, status: 'accepted' },
+          { recipient: req.user._id, status: 'accepted' }
+        ]
+      });
+      
+      const members = network.map(c => 
+        c.requester.toString() === req.user._id.toString() ? c.recipient : c.requester
+      );
+
+      if (members.length > 0) {
+        const notifications = members.map(memberId => ({
+          recipient: memberId,
+          sender: req.user._id,
+          type: 'new_post',
+          post: savedPost._id,
+          content: `shared a new ${postCategory}`
+        }));
+        await Notification.insertMany(notifications);
+      }
+    } catch (err) {
+      console.error('[NOTIFICATIONS] Network broadcast error:', err.message);
+    }
+
     res.status(201).json(savedPost);
   } catch (err) {
     console.error('[POSTS] Create error:', err);
@@ -243,6 +273,17 @@ router.post('/:id/share', authMiddleware, async (req, res, next) => {
 
     await logHistory(req.user._id, 'post_shared', 'post', `Shared post: ${originalPost._id}`, {}, savedRepost._id, 'Post');
     
+    // Notify original author
+    if (originalPost.author.toString() !== req.user._id.toString()) {
+      await Notification.create({
+        recipient: originalPost.author,
+        sender: req.user._id,
+        type: 'share',
+        post: originalPost._id,
+        content: 'shared your post'
+      });
+    }
+
     res.status(201).json(savedRepost);
   } catch (err) {
     next(err);
@@ -308,6 +349,66 @@ router.get('/:id/comments', async (req, res, next) => {
 });
 
 /**
+ * @route   POST /api/posts/:id/summarize
+ * @desc    Generate an AI summary for a post (paper or article) using Gemini
+ * @access  Private
+ */
+router.post('/:id/summarize', authMiddleware, async (req, res, next) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Post not found.' });
+
+    // Generate summary
+    const summary = await summarizePost(post);
+    
+    // Save to post
+    post.aiSummary = summary;
+    await post.save();
+
+    res.json({ aiSummary: summary });
+  } catch (err) {
+    console.error('[POSTS] AI Summarize error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @route   POST /api/posts/summarize-pdf
+ * @desc    Directly summarize a PDF file (base64)
+ * @access  Private 
+ */
+router.post('/summarize-pdf', authMiddleware, async (req, res, next) => {
+  try {
+    const { pdfData } = req.body;
+    if (!pdfData) return res.status(400).json({ error: 'PDF data is required' });
+
+    const summary = await summarizePDF(pdfData);
+    res.json({ summary });
+  } catch (err) {
+    console.error('[POSTS] PDF AI Summarize error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @route   POST /api/posts/ai-chat
+ * @desc    Chat with the AI research assistant
+ * @access  Private 
+ */
+router.post('/ai-chat', authMiddleware, async (req, res, next) => {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'Message is required' });
+
+    const aiResponse = await chatWithAi(message);
+    res.json({ response: aiResponse });
+  } catch (err) {
+    console.error('[POSTS] AI Chat error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * @route   POST /api/posts/:id/comment
  * @desc    Add a comment to a post
  * @access  Private
@@ -338,6 +439,17 @@ router.post('/:id/comment', authMiddleware, async (req, res, next) => {
     await savedComment.populate('author', 'nameEncrypted avatar');
 
     await logHistory(req.user._id, 'comment_added', 'post', `Commented on post: ${post._id}`, { content: content.substring(0, 50) }, post._id, 'Post');
+
+    // Notify post author
+    if (post.author.toString() !== req.user._id.toString()) {
+      await Notification.create({
+        recipient: post.author,
+        sender: req.user._id,
+        type: 'comment',
+        post: post._id,
+        content: 'commented on your post'
+      });
+    }
 
     res.status(201).json(savedComment);
   } catch (err) {
